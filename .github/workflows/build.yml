@@ -12,7 +12,7 @@ jobs:
       matrix: ${{ steps.read.outputs.matrix }}
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - id: read
         name: 读取版本表 versions.json
@@ -27,16 +27,16 @@ jobs:
         version: ${{ fromJSON(needs.read-versions.outputs.matrix) }}
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 安装 JDK 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 25
 
       - name: 配置 Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
 
       - name: 授予 gradlew 执行权限
         run: chmod +x ./gradlew
@@ -59,7 +59,7 @@ jobs:
           rm -f artifacts/*-sources.jar artifacts/*-javadoc.jar
 
       - name: 上传产物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: IMERemover-${{ matrix.version.minecraft }}
           path: artifacts/*.jar
