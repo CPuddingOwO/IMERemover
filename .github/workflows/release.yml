@@ -1,14 +1,24 @@
 name: RELEASE
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 模组版本号,例如 1.0.0
+        required: true
+        type: string
+      snapshot:
+        description: 是否为快照版本(勾选后版本号自动追加 -snapshot,并标记为预发布)
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   read-versions:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.read.outputs.matrix }}
+      version: ${{ steps.version.outputs.value }}
     steps:
       - name: 检出代码
         uses: actions/checkout@v5
@@ -17,11 +27,18 @@ jobs:
         name: 读取版本表 versions.json
         run: echo "matrix=$(jq -c '.versions' versions.json)" >> "$GITHUB_OUTPUT"
 
-  release:
+      - id: version
+        name: 计算版本号
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [ "${{ inputs.snapshot }}" = "true" ]; then
+            VERSION="${VERSION}-snapshot"
+          fi
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+  build:
     runs-on: ubuntu-latest
     needs: read-versions
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -42,14 +59,10 @@ jobs:
       - name: 授予 gradlew 执行权限
         run: chmod +x ./gradlew
 
-      - name: 获取版本号(去掉标签前的 v)
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
       - name: 编译 Minecraft ${{ matrix.version.minecraft }}
         run: |
           ./gradlew build \
-            -Pversion=${{ steps.version.outputs.version }} \
+            -Pversion=${{ needs.read-versions.outputs.version }} \
             -Pminecraft_version=${{ matrix.version.minecraft }} \
             -Pfabric_loader_version=${{ matrix.version.fabric_loader }} \
             -Pfabric_version=${{ matrix.version.fabric_api }} \
@@ -64,7 +77,35 @@ jobs:
           done
           rm -f artifacts/*-sources.jar artifacts/*-javadoc.jar
 
-      - name: 上传到 GitHub Release
+      - name: 上传产物
+        uses: actions/upload-artifact@v5
+        with:
+          name: IMERemover-${{ matrix.version.minecraft }}
+          path: artifacts/*.jar
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 下载全部构建产物
+        uses: actions/download-artifact@v4
+        with:
+          pattern: IMERemover-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: 发布到 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ needs.read-versions.outputs.version }}
+          name: IMERemover v${{ needs.read-versions.outputs.version }}
+          body: |
+            由 GitHub Actions 自动构建发布
+            支持 Minecraft 版本:见 versions.json
           files: artifacts/*.jar
+          prerelease: ${{ inputs.snapshot }}
