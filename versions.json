@@ -1,0 +1,18 @@
+{
+  "versions": [
+    {
+      "minecraft": "26.1.2",
+      "fabric_loader": "0.19.3",
+      "fabric_api": "0.155.2+26.1.2",
+      "neoforge": "26.1.2.97",
+      "neoform": "26.1.2-1"
+    },
+    {
+      "minecraft": "26.2",
+      "fabric_loader": "0.19.3",
+      "fabric_api": "0.158.0+26.2",
+      "neoforge": "26.2.0.64",
+      "neoform": "26.2-2"
+    }
+  ]
+}
