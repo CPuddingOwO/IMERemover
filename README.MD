@@ -8,7 +8,7 @@
 
 * 直接下载 [Release](https://github.com/CPuddingOwO/IMERemover/releases) 
 
-* 从Github仓库编译 参考 [Build](https://github.com/CPuddingOwO/IMERemover/releases#Build) 章节
+* 从Github仓库编译 参考 [Build](https://github.com/CPuddingOwO/IMERemover#Build) 章节
 
 ## Build
 
