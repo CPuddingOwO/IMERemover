@@ -1,0 +1,46 @@
+name: 发布 RELEASE
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: 配置 Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 授予 gradlew 执行权限
+        run: chmod +x ./gradlew
+
+      - name: 获取版本号(去掉标签前的 v)
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: 编译(使用标签版本号)
+        run: ./gradlew build -Pversion=${{ steps.version.outputs.version }}
+
+      - name: 收集产物
+        run: |
+          mkdir -p artifacts
+          for dir in fabric/build/libs neoforge/build/libs; do
+            cp "$dir"/*.jar artifacts/ 2>/dev/null || true
+          done
+          rm -f artifacts/*-sources.jar artifacts/*-javadoc.jar
+
+      - name: 上传到 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.jar

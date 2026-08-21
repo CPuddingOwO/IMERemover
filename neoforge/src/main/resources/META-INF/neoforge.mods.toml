@@ -1,0 +1,50 @@
+# 模组加载器类型 - 常规 FML @Mod 模组应使用 javafml
+modLoader = "javafml" #必填
+# 匹配上述模组加载器的版本范围 - 对常规 FML @Mod 而言即 FML 的版本范围
+loaderVersion = "${neoforge_loader_version_range}" #必填
+# 模组许可证。这是必填元数据,便于了解模组的再分发许可
+# 可选项见 https://choosealicense.com/
+license = "${license}"
+# 当模组出现问题时引导用户前往的 URL(可选)
+#issueTrackerURL="https://change.me.to.your.issue.tracker.example.invalid/"
+# 模组列表 - 单个模组文件允许的条目数量由具体的加载器决定
+[[mods]] #必填
+# 模组 id
+modId = "${mod_id}" #必填
+# 模组版本号
+version = "${version}" #必填
+# 显示名称
+displayName = "${mod_name}" #必填
+# 用于向模组检查更新时查询的 URL(可选),见 https://docs.neoforged.net/docs/misc/updatechecker/
+#updateJSONURL="https://change.me.example.invalid/updates.json"
+# 模组主页 URL(可选,显示在模组界面)
+#displayURL="https://change.me.to.your.mods.homepage.example.invalid/"
+credits="${credits}" #可选
+authors = "${mod_author}" #可选
+# 模组描述(必填,支持多行)
+description = '''${description}'''
+# [[mixins]] 块用于向 FML 声明你的 mixin 配置,使其被加载
+[[mixins]]
+config = "${mod_id}.mixins.json"
+[[mixins]]
+config = "${mod_id}.neoforge.mixins.json"
+
+# 依赖 - 使用点号表明对指定 modid 的依赖。依赖为可选项。
+[[dependencies."${mod_id}"]] #可选
+# 依赖的 modid
+modId = "neoforge" #必填
+# 依赖类型。可选 "required"、"optional"、"incompatible" 或 "discouraged"(不区分大小写)
+type = "required" #必填
+# 依赖的版本范围
+versionRange = "[${neoforge_version},)" #必填
+# 依赖与本模组之间的加载顺序。'BEFORE' - 先于本模组加载;'AFTER' - 后于本模组加载
+ordering = "NONE"
+# 该依赖生效的环境 - 'BOTH'、'CLIENT' 或 'SERVER'
+side = "BOTH"
+[[dependencies."${mod_id}"]]
+modId = "minecraft"
+type = "required" #必填
+# 该版本范围声明了当前 minecraft 版本的最小值,上限不包含下一个主版本
+versionRange = "${minecraft_version_range}"
+ordering = "NONE"
+side = "BOTH"

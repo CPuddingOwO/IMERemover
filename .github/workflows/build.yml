@@ -1,0 +1,42 @@
+name: 编译
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: 配置 Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 授予 gradlew 执行权限
+        run: chmod +x ./gradlew
+
+      - name: 编译
+        run: ./gradlew build
+
+      - name: 收集产物
+        run: |
+          mkdir -p artifacts
+          for dir in fabric/build/libs neoforge/build/libs; do
+            cp "$dir"/*.jar artifacts/ 2>/dev/null || true
+          done
+          rm -f artifacts/*-sources.jar artifacts/*-javadoc.jar
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: IMERemover
+          path: artifacts/*.jar
