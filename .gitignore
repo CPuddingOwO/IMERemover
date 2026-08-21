@@ -1,0 +1,17 @@
+.DS_Store
+
+.gradle
+# 构建目录
+build
+
+# IntelliJ
+out/
+.idea
+*.iml
+.idea_modules/
+
+# 虚拟机崩溃日志,见 https://www.java.com/en/download/help/hotspot.xml
+hs_err_pid*
+
+# 通用运行目录
+run
