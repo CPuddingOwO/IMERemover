@@ -1,4 +1,4 @@
-name: 发布 RELEASE
+name: RELEASE
 
 on:
   release:
