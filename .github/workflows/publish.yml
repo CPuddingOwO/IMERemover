@@ -1,4 +1,4 @@
-name: RELEASE
+name: PUBLISH
 
 on:
   workflow_dispatch:
@@ -7,11 +7,15 @@ on:
         description: 模组版本号,例如 1.0.0
         required: true
         type: string
-      snapshot:
-        description: 是否为快照版本(勾选后版本号自动追加 -snapshot,并标记为预发布)
-        required: false
-        default: false
-        type: boolean
+      release_type:
+        description: 发布类型(与 Modrinth 的 Release/Alpha/Beta 对应,Alpha/Beta 会标记为预发布)
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - Alpha
+          - Beta
 
 jobs:
   read-versions:
@@ -19,6 +23,7 @@ jobs:
     outputs:
       matrix: ${{ steps.read.outputs.matrix }}
       version: ${{ steps.version.outputs.value }}
+      release_type: ${{ steps.version.outputs.type }}
     steps:
       - name: 检出代码
         uses: actions/checkout@v5
@@ -31,10 +36,12 @@ jobs:
         name: 计算版本号
         run: |
           VERSION="${{ inputs.version }}"
-          if [ "${{ inputs.snapshot }}" = "true" ]; then
-            VERSION="${VERSION}-snapshot"
+          TYPE="${{ inputs.release_type }}"
+          if [ "$TYPE" != "Release" ]; then
+            VERSION="${VERSION}-$(echo "$TYPE" | tr '[:upper:]' '[:lower:]')"
           fi
           echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "type=$TYPE" >> "$GITHUB_OUTPUT"
 
   build:
     runs-on: ubuntu-latest
@@ -108,4 +115,4 @@ jobs:
             由 GitHub Actions 自动构建发布
             支持 Minecraft 版本:见 versions.json
           files: artifacts/*.jar
-          prerelease: ${{ inputs.snapshot }}
+          prerelease: ${{ needs.read-versions.outputs.release_type != 'Release' }}
