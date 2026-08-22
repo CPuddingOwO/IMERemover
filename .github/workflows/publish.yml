@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 模组版本号,例如 1.0.0
+        description: 模组版本号,例如 1.2.3(与 Minecraft 版本解耦,产物版本号为 1.2.3+26.2 形式)
         required: true
         type: string
       release_type:
-        description: 发布类型(与 Modrinth 的 Release/Alpha/Beta 对应,Alpha/Beta 会标记为预发布)
+        description: 发布类型(对应 Modrinth 的 Release/Alpha/Beta,Alpha/Beta 会标记为预发布)
         required: true
         default: Release
         type: choice
@@ -16,24 +16,25 @@ on:
           - Release
           - Alpha
           - Beta
+      minecraft_version:
+        description: 指定发布的 Minecraft 版本(留空则自动检测:配置了 MODRINTH_ID 时跳过已发布的版本,否则构建 versions.json 全部)
+        required: false
+        type: string
 
 jobs:
   read-versions:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.read.outputs.matrix }}
+      matrix: ${{ steps.detect.outputs.matrix }}
       version: ${{ steps.version.outputs.value }}
       release_type: ${{ steps.version.outputs.type }}
+      release_type_lower: ${{ steps.version.outputs.type_lower }}
     steps:
       - name: 检出代码
         uses: actions/checkout@v5
 
-      - id: read
-        name: 读取版本表 versions.json
-        run: echo "matrix=$(jq -c '.versions' versions.json)" >> "$GITHUB_OUTPUT"
-
       - id: version
-        name: 计算版本号
+        name: 计算模组版本号
         run: |
           VERSION="${{ inputs.version }}"
           TYPE="${{ inputs.release_type }}"
@@ -42,6 +43,54 @@ jobs:
           fi
           echo "value=$VERSION" >> "$GITHUB_OUTPUT"
           echo "type=$TYPE" >> "$GITHUB_OUTPUT"
+          echo "type_lower=$(echo "$TYPE" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - id: detect
+        name: 检测目标 Minecraft 版本
+        env:
+          MC_INPUT: ${{ inputs.minecraft_version }}
+          MOD_VERSION: ${{ steps.version.outputs.value }}
+          MODRINTH_ID: ${{ vars.MODRINTH_ID }}
+        run: |
+          MATRIX=$(python3 - <<'EOF'
+          import json, os, sys, urllib.request
+
+          mc_input = os.environ.get("MC_INPUT", "").strip()
+          mod_version = os.environ.get("MOD_VERSION", "")
+          modrinth_id = os.environ.get("MODRINTH_ID", "")
+
+          with open("versions.json", encoding="utf-8") as f:
+              versions = json.load(f)["versions"]
+
+          if mc_input:
+              targets = [v for v in versions if v["minecraft"] == mc_input]
+              if not targets:
+                  print(f"::error::{mc_input} 不在 versions.json 中,请先通过 fetch_versions.py 添加")
+                  sys.exit(1)
+          else:
+              targets = list(versions)
+              if modrinth_id:
+                  try:
+                      with urllib.request.urlopen(
+                          f"https://api.modrinth.com/v2/project/{modrinth_id}/version", timeout=30
+                      ) as resp:
+                          published = json.load(resp)
+                      prefix = mod_version + "+"
+                      published_mcs = {
+                          v["version_number"][len(prefix):]
+                          for v in published
+                          if v.get("version_number", "").startswith(prefix)
+                      }
+                      targets = [v for v in targets if v["minecraft"] not in published_mcs]
+                      skipped = sorted(published_mcs)
+                      print(f"已发布跳过:{'、'.join(skipped) if skipped else '无'}", file=sys.stderr)
+                  except Exception as e:
+                      print(f"警告:Modrinth 查询失败,将构建全部版本:{e}", file=sys.stderr)
+
+          print(json.dumps(targets, ensure_ascii=False))
+          EOF
+          )
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
   build:
     runs-on: ubuntu-latest
@@ -69,7 +118,7 @@ jobs:
       - name: 编译 Minecraft ${{ matrix.version.minecraft }}
         run: |
           ./gradlew build \
-            -Pversion=${{ needs.read-versions.outputs.version }} \
+            -Pversion=${{ needs.read-versions.outputs.version }}+${{ matrix.version.minecraft }} \
             -Pminecraft_version=${{ matrix.version.minecraft }} \
             -Pfabric_loader_version=${{ matrix.version.fabric_loader }} \
             -Pfabric_version=${{ matrix.version.fabric_api }} \
@@ -90,17 +139,17 @@ jobs:
           name: IMERemover-${{ matrix.version.minecraft }}
           path: artifacts/*.jar
 
-  publish:
+  publish-github:
     runs-on: ubuntu-latest
     needs: [build, read-versions]
     permissions:
       contents: write
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 下载全部构建产物
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: IMERemover-*
           path: artifacts
@@ -116,3 +165,34 @@ jobs:
             支持 Minecraft 版本:见 versions.json
           files: artifacts/*.jar
           prerelease: ${{ needs.read-versions.outputs.release_type != 'Release' }}
+
+  publish-modrinth:
+    if: ${{ secrets.MODRINTH_TOKEN != '' && vars.MODRINTH_ID != '' }}
+    runs-on: ubuntu-latest
+    needs: [build, read-versions]
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJSON(needs.read-versions.outputs.matrix) }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 下载构建产物
+        uses: actions/download-artifact@v5
+        with:
+          name: IMERemover-${{ matrix.version.minecraft }}
+          path: artifacts
+
+      - name: 发布到 Modrinth
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ${{ vars.MODRINTH_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          version: ${{ needs.read-versions.outputs.version }}+${{ matrix.version.minecraft }}
+          version-type: ${{ needs.read-versions.outputs.release_type_lower }}
+          game-versions: ${{ matrix.version.minecraft }}
+          loaders: fabric, neoforge
+          files: artifacts/*.jar
+          changelog: |
+            由 GitHub Actions 自动构建发布
