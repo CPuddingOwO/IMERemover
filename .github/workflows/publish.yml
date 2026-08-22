@@ -75,11 +75,15 @@ jobs:
                           f"https://api.modrinth.com/v2/project/{modrinth_id}/version", timeout=30
                       ) as resp:
                           published = json.load(resp)
-                      prefix = mod_version + "+"
-                      published_mcs = {
+                      prefix = mod_version + "-"
+                      published_entries = [
                           v["version_number"][len(prefix):]
                           for v in published
                           if v.get("version_number", "").startswith(prefix)
+                      ]
+                      # 从 "26.1-fabric" 提取 "26.1"
+                      published_mcs = {
+                          entry.rsplit("-", 1)[0] for entry in published_entries
                       }
                       targets = [v for v in targets if v["minecraft"] not in published_mcs]
                       skipped = sorted(published_mcs)
@@ -127,17 +131,24 @@ jobs:
 
       - name: 收集产物
         run: |
-          mkdir -p artifacts
+          mkdir -p artifacts/fabric artifacts/neoforge
           for dir in fabric/build/libs neoforge/build/libs; do
-            cp "$dir"/*.jar artifacts/ 2>/dev/null || true
+            loader=$(basename "$(dirname "$dir")")
+            cp "$dir"/*.jar "artifacts/$loader/" 2>/dev/null || true
           done
-          rm -f artifacts/*-sources.jar artifacts/*-javadoc.jar
+          rm -f artifacts/*/*-sources.jar artifacts/*/*-javadoc.jar
 
-      - name: 上传产物
+      - name: 上传 Fabric 产物
         uses: actions/upload-artifact@v5
         with:
-          name: IMERemover-${{ matrix.version.minecraft }}
-          path: artifacts/*.jar
+          name: IMERemover-${{ matrix.version.minecraft }}-fabric
+          path: artifacts/fabric/*.jar
+
+      - name: 上传 NeoForge 产物
+        uses: actions/upload-artifact@v5
+        with:
+          name: IMERemover-${{ matrix.version.minecraft }}-neoforge
+          path: artifacts/neoforge/*.jar
 
   publish-github:
     runs-on: ubuntu-latest
@@ -170,10 +181,13 @@ jobs:
     if: ${{ vars.MODRINTH_ID != '' }}
     runs-on: ubuntu-latest
     needs: [build, read-versions]
+    env:
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
         version: ${{ fromJSON(needs.read-versions.outputs.matrix) }}
+        loader: [fabric, neoforge]
     steps:
       - name: 检出代码
         uses: actions/checkout@v5
@@ -181,21 +195,19 @@ jobs:
       - name: 下载构建产物
         uses: actions/download-artifact@v5
         with:
-          name: IMERemover-${{ matrix.version.minecraft }}
+          name: IMERemover-${{ matrix.version.minecraft }}-${{ matrix.loader }}
           path: artifacts
 
       - name: 发布到 Modrinth
         if: ${{ env.MODRINTH_TOKEN != '' }}
-        env:
-          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
         uses: Kir-Antipov/mc-publish@v3.3
         with:
           modrinth-id: ${{ vars.MODRINTH_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          version: ${{ needs.read-versions.outputs.version }}+${{ matrix.version.minecraft }}
+          version: ${{ needs.read-versions.outputs.version }}-${{ matrix.version.minecraft }}-${{ matrix.loader }}
           version-type: ${{ needs.read-versions.outputs.release_type_lower }}
           game-versions: ${{ matrix.version.minecraft }}
-          loaders: fabric, neoforge
+          loaders: ${{ matrix.loader }}
           files: artifacts/*.jar
           changelog: |
             由 GitHub Actions 自动构建发布
