@@ -45,6 +45,11 @@ tasks.withType(Jar).configureEach {
     }
 }
 
+// 模组代码不强制 javadoc 注释,关闭 doclint 检查
+tasks.withType(Javadoc).configureEach {
+    options.addStringOption('Xdoclint:none', '-quiet')
+}
+
 jar {
     manifest {
         attributes(['Specification-Title'   : mod_name,
