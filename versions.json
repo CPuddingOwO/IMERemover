@@ -13,6 +13,20 @@
       "fabric_api": "0.158.0+26.2",
       "neoforge": "26.2.0.64",
       "neoform": "26.2-2"
+    },
+    {
+      "minecraft": "26.1",
+      "fabric_loader": "0.19.3",
+      "fabric_api": "0.145.1+26.1",
+      "neoforge": "26.1.0.19-beta",
+      "neoform": "26.1-1"
+    },
+    {
+      "minecraft": "26.1.1",
+      "fabric_loader": "0.19.3",
+      "fabric_api": "0.145.4+26.1.1",
+      "neoforge": "26.1.1.15-beta",
+      "neoform": "26.1.1-1"
     }
   ]
 }
