@@ -7,6 +7,6 @@ public class IMERemover {
 
     // 由 NeoForge 加载器在模组加载时调用
     public IMERemover() {
-        Constants.LOG.info("IMERemover 已加载 (NeoForge)");
+        Constants.LOG.info("IMERemover loaded.");
     }
 }

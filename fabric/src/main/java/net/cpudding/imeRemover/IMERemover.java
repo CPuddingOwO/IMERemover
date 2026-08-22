@@ -7,6 +7,6 @@ public class IMERemover implements ModInitializer {
     // 由 Fabric 加载器在模组加载时调用
     @Override
     public void onInitialize() {
-        Constants.LOG.info("IMERemover 已加载 (Fabric)");
+        Constants.LOG.info("IMERemover loaded.");
     }
 }
