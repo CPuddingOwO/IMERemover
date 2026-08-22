@@ -131,9 +131,9 @@ jobs:
 
       - name: 收集产物
         run: |
-          mkdir -p artifacts/fabric artifacts/neoforge
           for dir in fabric/build/libs neoforge/build/libs; do
-            loader=$(basename "$(dirname "$dir")")
+            loader="${dir%%/*}"
+            mkdir -p "artifacts/$loader"
             cp "$dir"/*.jar "artifacts/$loader/" 2>/dev/null || true
           done
           rm -f artifacts/*/*-sources.jar artifacts/*/*-javadoc.jar
